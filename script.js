@@ -1,10 +1,16 @@
+// Debug helper to check if script is loading
+console.log("Script loaded");
+
+// Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+  console.log("DOM fully loaded");
+  
   // State management
   const state = {
     entries: JSON.parse(localStorage.getItem('nutrientTrackerData')) || {},
     settings: JSON.parse(localStorage.getItem('nutrientTrackerSettings')) || {
-      waterGoal: 3000,  // Updated to 3000 ml
-      proteinGoal: 160  // Updated to 160 g
+      waterGoal: 3000,  // Default 3000 ml
+      proteinGoal: 160  // Default 160 g
     },
     currentDate: new Date(),
     selectedDate: new Date(),
@@ -12,9 +18,16 @@ document.addEventListener('DOMContentLoaded', function() {
     selectedMonth: new Date().toISOString().slice(0, 7) // YYYY-MM format
   };
   
+  // Debug the initial state
+  console.log("Initial state:", JSON.stringify(state));
+  
   // Utility functions
   function formatDate(date) {
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
   
   function formatDisplayDate(dateStr) {
@@ -24,10 +37,12 @@ document.addEventListener('DOMContentLoaded', function() {
   
   function saveData() {
     localStorage.setItem('nutrientTrackerData', JSON.stringify(state.entries));
+    console.log("Data saved to localStorage", state.entries);
   }
   
   function saveSettings() {
     localStorage.setItem('nutrientTrackerSettings', JSON.stringify(state.settings));
+    console.log("Settings saved to localStorage", state.settings);
   }
   
   function getEntryForDate(date) {
@@ -41,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
       ...getEntryForDate(dateKey),
       ...data
     };
+    console.log(`Updated entry for ${dateKey}:`, state.entries[dateKey]);
     saveData();
     updateUI();
   }
@@ -57,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // UI Management
   function updateUI() {
+    console.log("Updating UI");
     updateDashboard();
     updateCalendar();
     updateHistory();
@@ -64,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function updateDashboard() {
+    console.log("Updating dashboard");
     const today = formatDate(state.currentDate);
     const todayEntry = getEntryForDate(today);
     
@@ -82,13 +100,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('protein-progress-text').textContent = `${todayEntry.protein}/${state.settings.proteinGoal} g`;
     
     // Calculate weekly averages
-    const today = new Date();
     let waterTotal = 0;
     let proteinTotal = 0;
     let dayCount = 0;
     
     for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
+      const date = new Date(state.currentDate);
       date.setDate(date.getDate() - i);
       const entry = getEntryForDate(formatDate(date));
       
@@ -107,6 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function updateCalendar() {
+    console.log("Updating calendar");
     const year = state.currentMonth.getFullYear();
     const month = state.currentMonth.getMonth();
     
@@ -174,6 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       dayElement.addEventListener('click', () => {
+        console.log(`Selected date: ${dateStr}`);
         // Update selected date
         state.selectedDate = new Date(dateStr);
         
@@ -192,6 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function updateHistory() {
+    console.log("Updating history");
     // Populate months dropdown
     const monthSelect = document.getElementById('history-month');
     monthSelect.innerHTML = '';
@@ -260,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
       editButton.style.fontSize = '0.875rem';
       
       editButton.addEventListener('click', () => {
+        console.log(`Editing entry for ${dateStr}`);
         document.getElementById('log-date').value = dateStr;
         document.getElementById('water-intake').value = entry.water;
         document.getElementById('protein-intake').value = entry.protein;
@@ -276,104 +297,119 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function updateTrends() {
-    // Get the last 30 days of data
-    const today = new Date();
-    const dates = [];
-    const waterData = [];
-    const proteinData = [];
-    
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = formatDate(date);
-      const entry = getEntryForDate(dateStr);
+    console.log("Updating trends");
+    try {
+      // Get the last 30 days of data
+      const dates = [];
+      const waterData = [];
+      const proteinData = [];
       
-      dates.push(dateStr);
-      waterData.push(entry.water);
-      proteinData.push(entry.protein);
-    }
-    
-    // Create water chart
-    const waterCtx = document.getElementById('water-chart').getContext('2d');
-    if (window.waterChart) {
-      window.waterChart.destroy();
-    }
-    window.waterChart = new Chart(waterCtx, {
-      type: 'line',
-      data: {
-        labels: dates.map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
-        datasets: [{
-          label: 'Water Intake (ml)',
-          data: waterData,
-          backgroundColor: 'rgba(59, 130, 246, 0.2)',
-          borderColor: 'rgba(59, 130, 246, 1)',
-          borderWidth: 2,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Water (ml)'
-            }
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(state.currentDate);
+        date.setDate(date.getDate() - i);
+        const dateStr = formatDate(date);
+        const entry = getEntryForDate(dateStr);
+        
+        dates.push(dateStr);
+        waterData.push(entry.water);
+        proteinData.push(entry.protein);
+      }
+      
+      // Create water chart
+      const waterCtx = document.getElementById('water-chart');
+      if (waterCtx) {
+        if (window.waterChart) {
+          window.waterChart.destroy();
+        }
+        
+        window.waterChart = new Chart(waterCtx, {
+          type: 'line',
+          data: {
+            labels: dates.map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+            datasets: [{
+              label: 'Water Intake (ml)',
+              data: waterData,
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 2,
+              tension: 0.4
+            }]
           },
-          x: {
-            title: {
-              display: true,
-              text: 'Date'
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Water (ml)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              }
             }
           }
-        }
+        });
+      } else {
+        console.error("Water chart canvas not found");
       }
-    });
-    
-    // Create protein chart
-    const proteinCtx = document.getElementById('protein-chart').getContext('2d');
-    if (window.proteinChart) {
-      window.proteinChart.destroy();
-    }
-    window.proteinChart = new Chart(proteinCtx, {
-      type: 'line',
-      data: {
-        labels: dates.map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
-        datasets: [{
-          label: 'Protein Intake (g)',
-          data: proteinData,
-          backgroundColor: 'rgba(16, 185, 129, 0.2)',
-          borderColor: 'rgba(16, 185, 129, 1)',
-          borderWidth: 2,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Protein (g)'
-            }
+      
+      // Create protein chart
+      const proteinCtx = document.getElementById('protein-chart');
+      if (proteinCtx) {
+        if (window.proteinChart) {
+          window.proteinChart.destroy();
+        }
+        
+        window.proteinChart = new Chart(proteinCtx, {
+          type: 'line',
+          data: {
+            labels: dates.map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+            datasets: [{
+              label: 'Protein Intake (g)',
+              data: proteinData,
+              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+              borderColor: 'rgba(16, 185, 129, 1)',
+              borderWidth: 2,
+              tension: 0.4
+            }]
           },
-          x: {
-            title: {
-              display: true,
-              text: 'Date'
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Protein (g)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              }
             }
           }
-        }
+        });
+      } else {
+        console.error("Protein chart canvas not found");
       }
-    });
+    } catch (error) {
+      console.error("Error updating trends:", error);
+    }
   }
   
   // Event handlers
   function switchTab(tabId) {
+    console.log(`Switching to tab: ${tabId}`);
     // Remove active class from all tabs and panels
     document.querySelectorAll('.tab').forEach(tab => {
       tab.classList.remove('active');
@@ -390,6 +426,8 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Initialize app
   function initApp() {
+    console.log("Initializing app");
+    
     // Set default date to today
     document.getElementById('log-date').value = formatDate(state.currentDate);
     
@@ -404,109 +442,171 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
     
-    // Add event listener for log form
-    document.getElementById('log-form').addEventListener('submit', function(e) {
-      e.preventDefault();
-      
-      const date = document.getElementById('log-date').value;
-      const water = parseInt(document.getElementById('water-intake').value) || 0;
-      const protein = parseInt(document.getElementById('protein-intake').value) || 0;
-      const notes = document.getElementById('notes').value;
-      
-      updateEntry(date, {
-        water,
-        protein,
-        notes
+    // Add event listener for log form submission
+    const logForm = document.getElementById('log-form');
+    if (logForm) {
+      logForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log("Log form submitted");
+        
+        const date = document.getElementById('log-date').value;
+        const water = parseInt(document.getElementById('water-intake').value) || 0;
+        const protein = parseInt(document.getElementById('protein-intake').value) || 0;
+        const notes = document.getElementById('notes').value;
+        
+        updateEntry(date, {
+          water,
+          protein,
+          notes
+        });
+        
+        showToast('Entry saved successfully!');
+        
+        // Reset form
+        document.getElementById('water-intake').value = '';
+        document.getElementById('protein-intake').value = '';
+        document.getElementById('notes').value = '';
+        
+        // Switch to dashboard
+        switchTab('dashboard');
       });
-      
-      showToast('Entry saved successfully!');
-      
-      // Reset form
-      document.getElementById('water-intake').value = '';
-      document.getElementById('protein-intake').value = '';
-      document.getElementById('notes').value = '';
-      
-      // Switch to dashboard
-      switchTab('dashboard');
-    });
+    } else {
+      console.error("Log form not found");
+    }
     
-    // Quick add buttons
-    document.getElementById('add-water').addEventListener('click', function() {
-      const amount = parseInt(document.getElementById('quick-water').value) || 0;
-      if (amount > 0) {
-        const today = formatDate(state.currentDate);
-        const currentEntry = getEntryForDate(today);
-        
-        updateEntry(today, {
-          water: currentEntry.water + amount
-        });
-        
-        showToast(`Added ${amount}ml of water!`);
-        document.getElementById('quick-water').value = '';
-      }
-    });
+    // Quick add buttons with direct click handlers
+    const addWaterBtn = document.getElementById('add-water');
+    if (addWaterBtn) {
+      addWaterBtn.onclick = function() {
+        console.log("Add water button clicked");
+        const amount = parseInt(document.getElementById('quick-water').value) || 0;
+        if (amount > 0) {
+          const today = formatDate(state.currentDate);
+          const currentEntry = getEntryForDate(today);
+          
+          updateEntry(today, {
+            water: currentEntry.water + amount
+          });
+          
+          showToast(`Added ${amount}ml of water!`);
+          document.getElementById('quick-water').value = '';
+        }
+      };
+    } else {
+      console.error("Add water button not found");
+    }
     
-    document.getElementById('add-protein').addEventListener('click', function() {
-      const amount = parseInt(document.getElementById('quick-protein').value) || 0;
-      if (amount > 0) {
-        const today = formatDate(state.currentDate);
-        const currentEntry = getEntryForDate(today);
-        
-        updateEntry(today, {
-          protein: currentEntry.protein + amount
-        });
-        
-        showToast(`Added ${amount}g of protein!`);
-        document.getElementById('quick-protein').value = '';
-      }
-    });
+    const addProteinBtn = document.getElementById('add-protein');
+    if (addProteinBtn) {
+      addProteinBtn.onclick = function() {
+        console.log("Add protein button clicked");
+        const amount = parseInt(document.getElementById('quick-protein').value) || 0;
+        if (amount > 0) {
+          const today = formatDate(state.currentDate);
+          const currentEntry = getEntryForDate(today);
+          
+          updateEntry(today, {
+            protein: currentEntry.protein + amount
+          });
+          
+          showToast(`Added ${amount}g of protein!`);
+          document.getElementById('quick-protein').value = '';
+        }
+      };
+    } else {
+      console.error("Add protein button not found");
+    }
     
     // Calendar navigation
-    document.getElementById('prev-month').addEventListener('click', function() {
-      state.currentMonth.setMonth(state.currentMonth.getMonth() - 1);
-      updateCalendar();
-    });
+    const prevMonthBtn = document.getElementById('prev-month');
+    if (prevMonthBtn) {
+      prevMonthBtn.onclick = function() {
+        console.log("Previous month button clicked");
+        state.currentMonth.setMonth(state.currentMonth.getMonth() - 1);
+        updateCalendar();
+      };
+    } else {
+      console.error("Previous month button not found");
+    }
     
-    document.getElementById('next-month').addEventListener('click', function() {
-      state.currentMonth.setMonth(state.currentMonth.getMonth() + 1);
-      updateCalendar();
-    });
+    const nextMonthBtn = document.getElementById('next-month');
+    if (nextMonthBtn) {
+      nextMonthBtn.onclick = function() {
+        console.log("Next month button clicked");
+        state.currentMonth.setMonth(state.currentMonth.getMonth() + 1);
+        updateCalendar();
+      };
+    } else {
+      console.error("Next month button not found");
+    }
     
     // History month selection
-    document.getElementById('history-month').addEventListener('change', function() {
-      state.selectedMonth = this.value;
-      updateHistory();
-    });
+    const historyMonth = document.getElementById('history-month');
+    if (historyMonth) {
+      historyMonth.onchange = function() {
+        console.log("History month changed:", this.value);
+        state.selectedMonth = this.value;
+        updateHistory();
+      };
+    } else {
+      console.error("History month select not found");
+    }
     
     // Settings modal
-    document.getElementById('settings-btn').addEventListener('click', function() {
-      document.getElementById('settings-modal').classList.add('active');
-    });
-    
-    document.getElementById('close-settings').addEventListener('click', function() {
-      document.getElementById('settings-modal').classList.remove('active');
-    });
-    
-    document.getElementById('settings-form').addEventListener('submit', function(e) {
-      e.preventDefault();
-      
-      const waterGoal = parseInt(document.getElementById('water-goal').value) || 3000;
-      const proteinGoal = parseInt(document.getElementById('protein-goal').value) || 160;
-      
-      state.settings = {
-        waterGoal,
-        proteinGoal
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+      settingsBtn.onclick = function() {
+        console.log("Settings button clicked");
+        document.getElementById('settings-modal').classList.add('active');
       };
-      
-      saveSettings();
-      updateUI();
-      
-      document.getElementById('settings-modal').classList.remove('active');
-      showToast('Settings saved successfully!');
-    });
+    } else {
+      console.error("Settings button not found");
+    }
+    
+    const closeSettingsBtn = document.getElementById('close-settings');
+    if (closeSettingsBtn) {
+      closeSettingsBtn.onclick = function() {
+        console.log("Close settings button clicked");
+        document.getElementById('settings-modal').classList.remove('active');
+      };
+    } else {
+      console.error("Close settings button not found");
+    }
+    
+    const settingsForm = document.getElementById('settings-form');
+    if (settingsForm) {
+      settingsForm.onsubmit = function(e) {
+        e.preventDefault();
+        console.log("Settings form submitted");
+        
+        const waterGoal = parseInt(document.getElementById('water-goal').value) || 3000;
+        const proteinGoal = parseInt(document.getElementById('protein-goal').value) || 160;
+        
+        state.settings = {
+          waterGoal,
+          proteinGoal
+        };
+        
+        saveSettings();
+        updateUI();
+        
+        document.getElementById('settings-modal').classList.remove('active');
+        showToast('Settings saved successfully!');
+      };
+    } else {
+      console.error("Settings form not found");
+    }
     
     // Initialize UI
     updateUI();
+    
+    console.log("App initialization complete");
+  }
+  
+  // Enable debug mode
+  const debugElement = document.getElementById('debug');
+  if (debugElement) {
+    debugElement.style.display = 'block';
   }
   
   // Initialize the app
