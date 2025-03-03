@@ -304,6 +304,74 @@
       margin-bottom: 2rem;
     }
     
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--gray-700);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background-color: var(--success);
+      color: white;
+      padding: 1rem;
+      border-radius: var(--radius);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 2000;
+    }
+    
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    
     @media (max-width: 768px) {
       .grid {
         grid-template-columns: 1fr;
@@ -356,7 +424,7 @@
         <div class="progress-container">
           <div class="progress-label">
             <span>Water Intake</span>
-            <span id="water-progress-text">0/3000 ml</span>
+            <span id="water-progress-text">0/2500 ml</span>
           </div>
           <div class="progress-bar">
             <div class="progress-value" id="water-progress-bar" style="width: 0%;"></div>
@@ -366,7 +434,7 @@
         <div class="progress-container">
           <div class="progress-label">
             <span>Protein Intake</span>
-            <span id="protein-progress-text">0/160 g</span>
+            <span id="protein-progress-text">0/120 g</span>
           </div>
           <div class="progress-bar">
             <div class="progress-value" id="protein-progress-bar" style="width: 0%;"></div>
@@ -493,401 +561,415 @@
       </div>
     </div>
   </div>
+  
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Settings</h2>
+        <button class="modal-close" id="close-settings">&times;</button>
+      </div>
+      
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="water-goal">Daily Water Goal (ml)</label>
+          <input type="number" id="water-goal" min="0" step="100" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="protein-goal">Daily Protein Goal (g)</label>
+          <input type="number" id="protein-goal" min="0" step="1" required>
+        </div>
+        
+        <button type="submit">Save Settings</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">Data saved successfully!</div>
 
   <script>
-    // State management
-    const state = {
-      entries: JSON.parse(localStorage.getItem('nutrientTrackerData')) || {},
-      settings: JSON.parse(localStorage.getItem('nutrientTrackerSettings')) || {
-        waterGoal: 3000,
-        proteinGoal: 160
-      },
-      currentDate: new Date(),
-      selectedDate: new Date(),
-      currentMonth: new Date(),
-      selectedMonth: new Date().toISOString().slice(0, 7) // YYYY-MM format
-    };
-    
-    // Utility functions
-    function formatDate(date) {
-      return date.toISOString().split('T')[0]; // YYYY-MM-DD
-    }
-    
-    function formatDisplayDate(dateStr) {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    }
-    
-    function saveData() {
-      localStorage.setItem('nutrientTrackerData', JSON.stringify(state.entries));
-    }
-    
-    function saveSettings() {
-      localStorage.setItem('nutrientTrackerSettings', JSON.stringify(state.settings));
-    }
-    
-    function getEntryForDate(date) {
-      const dateKey = typeof date === 'string' ? date : formatDate(date);
-      return state.entries[dateKey] || { water: 0, protein: 0, notes: '' };
-    }
-    
-    function updateEntry(date, data) {
-      const dateKey = typeof date === 'string' ? date : formatDate(date);
-      state.entries[dateKey] = {
-        ...getEntryForDate(dateKey),
-        ...data
+    // Load d3.js for charts
+    document.addEventListener('DOMContentLoaded', function() {
+      // This is a minimal version of d3 for our simple charts
+      // In a production app, you'd load the full library from a CDN
+      const d3 = {
+        select: function(selector) {
+          return {
+            append: function(type) {
+              const element = document.createElementNS("http://www.w3.org/2000/svg", type);
+              document.querySelector(selector).appendChild(element);
+              return {
+                attr: function(name, value) {
+                  element.setAttribute(name, value);
+                  return this;
+                },
+                style: function(name, value) {
+                  element.style[name] = value;
+                  return this;
+                },
+                text: function(value) {
+                  element.textContent = value;
+                  return this;
+                },
+                selectAll: function(childSelector) {
+                  return {
+                    data: function(data) {
+                      this.data = data;
+                      return {
+                        enter: function() {
+                          return {
+                            append: function(type) {
+                              const elements = [];
+                              for (let i = 0; i < data.length; i++) {
+                                const el = document.createElementNS("http://www.w3.org/2000/svg", type);
+                                element.appendChild(el);
+                                elements.push(el);
+                              }
+                              return {
+                                attr: function(name, valueFn) {
+                                  elements.forEach((el, i) => {
+                                    if (typeof valueFn === 'function') {
+                                      el.setAttribute(name, valueFn(data[i], i));
+                                    } else {
+                                      el.setAttribute(name, valueFn);
+                                    }
+                                  });
+                                  return this;
+                                },
+                                style: function(name, valueFn) {
+                                  elements.forEach((el, i) => {
+                                    if (typeof valueFn === 'function') {
+                                      el.style[name] = valueFn(data[i], i);
+                                    } else {
+                                      el.style[name] = valueFn;
+                                    }
+                                  });
+                                  return this;
+                                }
+                              };
+                            }
+                          };
+                        }
+                      };
+                    }
+                  };
+                }
+              };
+            }
+          };
+        },
+        scaleBand: function() {
+          return {
+            domain: function(domain) {
+              this._domain = domain;
+              return this;
+            },
+            range: function(range) {
+              this._range = range;
+              return this;
+            },
+            padding: function(padding) {
+              this._padding = padding;
+              return this;
+            },
+            bandwidth: function() {
+              return (this._range[1] - this._range[0]) / this._domain.length * (1 - this._padding);
+            }
+          };
+        },
+        scaleLinear: function() {
+          return {
+            domain: function(domain) {
+              this._domain = domain;
+              return this;
+            },
+            range: function(range) {
+              this._range = range;
+              return this;
+            }
+          };
+        },
+        axisBottom: function(scale) {
+          return function(g) {};
+        },
+        axisLeft: function(scale) {
+          return function(g) {};
+        },
+        line: function() {
+          return {
+            x: function(fn) {
+              this._x = fn;
+              return this;
+            },
+            y: function(fn) {
+              this._y = fn;
+              return this;
+            }
+          };
+        }
       };
-      saveData();
-      updateUI();
-    }
-    
-    // UI Management
-    function updateUI() {
-      updateDashboard();
-      updateCalendar();
-      updateHistory();
-      updateTrends();
-    }
-    
-    function updateDashboard() {
-      const today = formatDate(state.currentDate);
-      const todayEntry = getEntryForDate(today);
+
+      // State management
+      const state = {
+        entries: JSON.parse(localStorage.getItem('nutrientTrackerData')) || {},
+        settings: JSON.parse(localStorage.getItem('nutrientTrackerSettings')) || {
+          waterGoal: 2500,
+          proteinGoal: 120
+        },
+        currentDate: new Date(),
+        selectedDate: new Date(),
+        currentMonth: new Date(),
+        selectedMonth: new Date().toISOString().slice(0, 7) // YYYY-MM format
+      };
       
-      // Update today's values
-      document.getElementById('today-water').textContent = `${todayEntry.water}ml`;
-      document.getElementById('today-protein').textContent = `${todayEntry.protein}g`;
-      
-      // Update progress bars
-      const waterPercent = Math.min(100, (todayEntry.water / state.settings.waterGoal) * 100);
-      const proteinPercent = Math.min(100, (todayEntry.protein / state.settings.proteinGoal) * 100);
-      
-      document.getElementById('water-progress-bar').style.width = `${waterPercent}%`;
-      document.getElementById('water-progress-text').textContent = `${todayEntry.water}/${state.settings.waterGoal} ml`;
-      
-      document.getElementById('protein-progress-bar').style.width = `${proteinPercent}%`;
-      document.getElementById('protein-progress-text').textContent = `${todayEntry.protein}/${state.settings.proteinGoal} g`;
-      
-      // Calculate weekly averages
-      const today = new Date();
-      let waterTotal = 0;
-      let proteinTotal = 0;
-      let dayCount = 0;
-      
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const entry = getEntryForDate(formatDate(date));
-        
-        if (entry.water > 0 || entry.protein > 0) {
-          waterTotal += entry.water;
-          proteinTotal += entry.protein;
-          dayCount++;
-        }
+      // Utility functions
+      function formatDate(date) {
+        return date.toISOString().split('T')[0]; // YYYY-MM-DD
       }
       
-      const avgWater = dayCount > 0 ? Math.round(waterTotal / dayCount) : 0;
-      const avgProtein = dayCount > 0 ? Math.round(proteinTotal / dayCount) : 0;
-      
-      document.getElementById('avg-water').textContent = `${avgWater}ml`;
-      document.getElementById('avg-protein').textContent = `${avgProtein}g`;
-    }
-    
-    function updateCalendar() {
-      const year = state.currentMonth.getFullYear();
-      const month = state.currentMonth.getMonth();
-      
-      // Update calendar month title
-      document.getElementById('calendar-month').textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      
-      // Clear previous calendar days
-      const calendarDays = document.querySelectorAll('.day');
-      calendarDays.forEach(day => day.remove());
-      
-      // Get first day of month and total days
-      const firstDay = new Date(year, month, 1).getDay();
-      const lastDate = new Date(year, month + 1, 0).getDate();
-      
-      // Add empty placeholder days
-      for (let i = 0; i < firstDay; i++) {
-        const emptyDay = document.createElement('div');
-        document.getElementById('calendar').appendChild(emptyDay);
+      function formatDisplayDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
       }
       
-      // Add calendar days
-      for (let day = 1; day <= lastDate; day++) {
-        const dateObj = new Date(year, month, day);
-        const dateStr = formatDate(dateObj);
-        const entry = getEntryForDate(dateStr);
+      function saveData() {
+        localStorage.setItem('nutrientTrackerData', JSON.stringify(state.entries));
+      }
+      
+      function saveSettings() {
+        localStorage.setItem('nutrientTrackerSettings', JSON.stringify(state.settings));
+      }
+      
+      function getEntryForDate(date) {
+        const dateKey = typeof date === 'string' ? date : formatDate(date);
+        return state.entries[dateKey] || { water: 0, protein: 0, notes: '' };
+      }
+      
+      function updateEntry(date, data) {
+        const dateKey = typeof date === 'string' ? date : formatDate(date);
+        state.entries[dateKey] = {
+          ...getEntryForDate(dateKey),
+          ...data
+        };
+        saveData();
+        updateUI();
+      }
+      
+      // UI Management
+      function updateUI() {
+        updateDashboard();
+        updateCalendar();
+        updateHistory();
+        updateTrends();
+      }
+      
+      function updateDashboard() {
+        const today = formatDate(state.currentDate);
+        const todayEntry = getEntryForDate(today);
         
-        const dayElement = document.createElement('div');
-        dayElement.className = 'day';
-        dayElement.dataset.date = dateStr;
+        // Update today's values
+        document.getElementById('today-water').textContent = `${todayEntry.water}ml`;
+        document.getElementById('today-protein').textContent = `${todayEntry.protein}g`;
         
-        if (dateStr === formatDate(state.currentDate)) {
-          dayElement.classList.add('today');
-        }
+        // Update progress bars
+        const waterPercent = Math.min(100, (todayEntry.water / state.settings.waterGoal) * 100);
+        const proteinPercent = Math.min(100, (todayEntry.protein / state.settings.proteinGoal) * 100);
         
-        if (dateStr === formatDate(state.selectedDate)) {
-          dayElement.classList.add('selected');
-        }
+        document.getElementById('water-progress-bar').style.width = `${waterPercent}%`;
+        document.getElementById('water-progress-text').textContent = `${todayEntry.water}/${state.settings.waterGoal} ml`;
         
-        const dayNumber = document.createElement('div');
-        dayNumber.className = 'day-number';
-        dayNumber.textContent = day;
-        dayElement.appendChild(dayNumber);
+        document.getElementById('protein-progress-bar').style.width = `${proteinPercent}%`;
+        document.getElementById('protein-progress-text').textContent = `${todayEntry.protein}/${state.settings.proteinGoal} g`;
         
-        // Add indicators for logged data
-        if (entry.water > 0 || entry.protein > 0) {
-          const indicatorContainer = document.createElement('div');
-          indicatorContainer.className = 'day-indicator';
+        // Calculate weekly averages
+        const today = new Date();
+        let waterTotal = 0;
+        let proteinTotal = 0;
+        let dayCount = 0;
+        
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const entry = getEntryForDate(formatDate(date));
           
-          if (entry.water > 0) {
-            const waterIndicator = document.createElement('div');
-            waterIndicator.className = 'indicator water-indicator';
-            indicatorContainer.appendChild(waterIndicator);
+          if (entry.water > 0 || entry.protein > 0) {
+            waterTotal += entry.water;
+            proteinTotal += entry.protein;
+            dayCount++;
+          }
+        }
+        
+        const avgWater = dayCount > 0 ? Math.round(waterTotal / dayCount) : 0;
+        const avgProtein = dayCount > 0 ? Math.round(proteinTotal / dayCount) : 0;
+        
+        document.getElementById('avg-water').textContent = `${avgWater}ml`;
+        document.getElementById('avg-protein').textContent = `${avgProtein}g`;
+      }
+      
+      function updateCalendar() {
+        const year = state.currentMonth.getFullYear();
+        const month = state.currentMonth.getMonth();
+        
+        // Update calendar month title
+        document.getElementById('calendar-month').textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Clear previous calendar days
+        const calendar = document.getElementById('calendar');
+        const weekdayElements = document.querySelectorAll('.weekday');
+        const calendarDays = document.querySelectorAll('.day');
+        calendarDays.forEach(day => day.remove());
+        
+        // Get first day of month and total days
+        const firstDay = new Date(year, month, 1).getDay();
+        const lastDate = new Date(year, month + 1, 0).getDate();
+        
+        // Add empty placeholder days
+        for (let i = 0; i < firstDay; i++) {
+          const emptyDay = document.createElement('div');
+          calendar.appendChild(emptyDay);
+        }
+        
+        // Add calendar days
+        for (let day = 1; day <= lastDate; day++) {
+          const dateObj = new Date(year, month, day);
+          const dateStr = formatDate(dateObj);
+          const entry = getEntryForDate(dateStr);
+          
+          const dayElement = document.createElement('div');
+          dayElement.className = 'day';
+          dayElement.dataset.date = dateStr;
+          
+          if (dateStr === formatDate(state.currentDate)) {
+            dayElement.classList.add('today');
           }
           
-          if (entry.protein > 0) {
-            const proteinIndicator = document.createElement('div');
-            proteinIndicator.className = 'indicator protein-indicator';
-            indicatorContainer.appendChild(proteinIndicator);
+          if (dateStr === formatDate(state.selectedDate)) {
+            dayElement.classList.add('selected');
           }
           
-          dayElement.appendChild(indicatorContainer);
+          const dayNumber = document.createElement('div');
+          dayNumber.className = 'day-number';
+          dayNumber.textContent = day;
+          dayElement.appendChild(dayNumber);
+          
+          // Add indicators for logged data
+          if (entry.water > 0 || entry.protein > 0) {
+            const indicatorContainer = document.createElement('div');
+            indicatorContainer.className = 'day-indicator';
+            
+            if (entry.water > 0) {
+              const waterIndicator = document.createElement('div');
+              waterIndicator.className = 'indicator water-indicator';
+              indicatorContainer.appendChild(waterIndicator);
+            }
+            
+            if (entry.protein > 0) {
+              const proteinIndicator = document.createElement('div');
+              proteinIndicator.className = 'indicator protein-indicator';
+              indicatorContainer.appendChild(proteinIndicator);
+            }
+            
+            dayElement.appendChild(indicatorContainer);
+          }
+          
+          dayElement.addEventListener('click', () => {
+            // Update selected date
+            state.selectedDate = new Date(dateStr);
+            
+            // Update form date
+            document.getElementById('log-date').value = dateStr;
+            
+            // Switch to tracker tab
+            switchTab('tracker');
+            
+            // Update calendar
+            updateCalendar();
+          });
+          
+          calendar.appendChild(dayElement);
         }
+      }
+      
+      function updateHistory() {
+        // Populate months dropdown
+        const monthSelect = document.getElementById('history-month');
+        monthSelect.innerHTML = '';
         
-        dayElement.addEventListener('click', () => {
-          // Update selected date
-          state.selectedDate = new Date(dateStr);
-          
-          // Update form date
-          document.getElementById('log-date').value = dateStr;
-          
-          // Switch to tracker tab
-          switchTab('tracker');
-          
-          // Update calendar
-          updateCalendar();
+        const months = {};
+        Object.keys(state.entries).forEach(dateStr => {
+          const yearMonth = dateStr.substring(0, 7);
+          months[yearMonth] = true;
         });
         
-        document.getElementById('calendar').appendChild(dayElement);
-      }
-    }
-    
-    function updateHistory() {
-      // Populate months dropdown
-      const monthSelect = document.getElementById('history-month');
-      monthSelect.innerHTML = '';
-      
-      const months = {};
-      Object.keys(state.entries).forEach(dateStr => {
-        const yearMonth = dateStr.substring(0, 7);
-        months[yearMonth] = true;
-      });
-      
-      // Add current month if no entries exist
-      const currentYearMonth = formatDate(state.currentDate).substring(0, 7);
-      months[currentYearMonth] = true;
-      
-      // Sort months in descending order
-      const sortedMonths = Object.keys(months).sort((a, b) => b.localeCompare(a));
-      
-      sortedMonths.forEach(yearMonth => {
-        const option = document.createElement('option');
-        option.value = yearMonth;
+        // Add current month if no entries exist
+        const currentYearMonth = formatDate(state.currentDate).substring(0, 7);
+        months[currentYearMonth] = true;
         
-        const date = new Date(yearMonth + '-01');
-        option.textContent = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        // Sort months in descending order
+        const sortedMonths = Object.keys(months).sort((a, b) => b.localeCompare(a));
         
-        if (yearMonth === state.selectedMonth) {
-          option.selected = true;
-        }
-        
-        monthSelect.appendChild(option);
-      });
-      
-      // Populate history table
-      const historyBody = document.getElementById('history-body');
-      historyBody.innerHTML = '';
-      
-      const yearMonth = state.selectedMonth;
-      const entriesForMonth = Object.keys(state.entries)
-        .filter(dateStr => dateStr.startsWith(yearMonth))
-        .sort((a, b) => b.localeCompare(a));
-      
-      entriesForMonth.forEach(dateStr => {
-        const entry = state.entries[dateStr];
-        const row = document.createElement('tr');
-        
-        const dateCell = document.createElement('td');
-        dateCell.textContent = formatDisplayDate(dateStr);
-        row.appendChild(dateCell);
-        
-        const waterCell = document.createElement('td');
-        waterCell.textContent = `${entry.water} ml`;
-        row.appendChild(waterCell);
-        
-        const proteinCell = document.createElement('td');
-        proteinCell.textContent = `${entry.protein} g`;
-        row.appendChild(proteinCell);
-        
-        const notesCell = document.createElement('td');
-        notesCell.textContent = entry.notes || '-';
-        row.appendChild(notesCell);
-        
-        const actionsCell = document.createElement('td');
-        const editButton = document.createElement('button');
-        editButton.textContent = 'Edit';
-        editButton.style.padding = '0.25rem 0.5rem';
-        editButton.style.fontSize = '0.875rem';
-        
-        editButton.addEventListener('click', () => {
-          document.getElementById('log-date').value = dateStr;
-          document.getElementById('water-intake').value = entry.water;
-          document.getElementById('protein-intake').value = entry.protein;
-          document.getElementById('notes').value = entry.notes || '';
+        sortedMonths.forEach(yearMonth => {
+          const option = document.createElement('option');
+          option.value = yearMonth;
           
-          switchTab('tracker');
+          const date = new Date(yearMonth + '-01');
+          option.textContent = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          
+          if (yearMonth === state.selectedMonth) {
+            option.selected = true;
+          }
+          
+          monthSelect.appendChild(option);
         });
         
-        actionsCell.appendChild(editButton);
-        row.appendChild(actionsCell);
+        // Populate history table
+        const historyBody = document.getElementById('history-body');
+        historyBody.innerHTML = '';
         
-        historyBody.appendChild(row);
-      });
-      
-      // Show message if no entries
-      if (entriesForMonth.length === 0) {
-        const row = document.createElement('tr');
-        const emptyCell = document.createElement('td');
-        emptyCell.colSpan = 5;
-        emptyCell.textContent = 'No entries for this month';
-        emptyCell.style.textAlign = 'center';
-        emptyCell.style.padding = '2rem';
-        row.appendChild(emptyCell);
-        historyBody.appendChild(row);
-      }
-    }
-    
-    function updateTrends() {
-      drawWaterChart();
-      drawProteinChart();
-    }
-    
-    function drawWaterChart() {
-      const svgElement = document.getElementById('water-chart');
-      svgElement.innerHTML = '';
-      
-      // Get last 30 days of data
-      const dates = [];
-      const waterData = [];
-      
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = formatDate(date);
-        const entry = getEntryForDate(dateStr);
+        const yearMonth = state.selectedMonth;
+        const entriesForMonth = Object.keys(state.entries)
+          .filter(dateStr => dateStr.startsWith(yearMonth))
+          .sort((a, b) => b.localeCompare(a));
         
-        dates.push(dateStr);
-        waterData.push(entry.water);
-      }
-      
-      // Chart dimensions
-      const svg = d3.select('#water-chart');
-      const margin = {top: 20, right: 30, bottom: 40, left: 60};
-      const width = svgElement.clientWidth - margin.left - margin.right;
-      const height = svgElement.clientHeight - margin.top - margin.bottom;
-      
-      const g = svg.append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-      
-      // X axis
-      const x = d3.scaleBand()
-        .domain(dates.map((d, i) => i % 5 === 0 ? d.slice(5) : ''))
-        .range([0, width])
-        .padding(0.1);
-      
-      g.append('g')
-        .attr('transform', `translate(0,${height})`)
-        .call(d3.axisBottom(x))
-        .selectAll('text')
-        .style('text-anchor', 'end')
-        .attr('dx', '-.8em')
-        .attr('dy', '.15em')
-        .attr('transform', 'rotate(-45)');
-      
-      // Y axis
-      const maxWater = Math.max(state.settings.waterGoal, ...waterData) * 1.1;
-      const y = d3.scaleLinear()
-        .domain([0, maxWater])
-        .range([height, 0]);
-      
-      g.append('g')
-        .call(d3.axisLeft(y));
-      
-      // Goal line
-      g.append('line')
-        .attr('x1', 0)
-        .attr('y1', y(state.settings.waterGoal))
-        .attr('x2', width)
-        .attr('y2', y(state.settings.waterGoal))
-        .attr('stroke', '#f59e0b')
-        .attr('stroke-dasharray', '4')
-        .attr('stroke-width', 2);
-      
-      // Bars
-      g.selectAll('.bar')
-        .data(waterData)
-        .enter().append('rect')
-        .attr('class', 'bar')
-        .attr('x', (d, i) => x(dates[i].slice(5)))
-        .attr('y', d => y(d))
-        .attr('width', x.bandwidth())
-        .attr('height', d => height - y(d))
-        .attr('fill', '#3b82f6');
-      
-      // Labels
-      g.append('text')
-        .attr('x', -height/2)
-        .attr('y', -40)
-        .attr('transform', 'rotate(-90)')
-        .attr('text-anchor', 'middle')
-        .text('Water Intake (ml)');
-      
-      g.append('text')
-        .attr('x', width / 2)
-        .attr('y', height + 40)
-        .attr('text-anchor', 'middle')
-        .text('Date (MM-DD)');
-    }
-    
-    function drawProteinChart() {
-      const svgElement = document.getElementById('protein-chart');
-      svgElement.innerHTML = '';
-      
-      // Get last 30 days of data
-      const dates = [];
-      const proteinData = [];
-      
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = formatDate(date);
-        const entry = getEntryForDate(dateStr);
-        
-        dates.push(dateStr);
-        proteinData.push(entry.protein);
-      }
-      
-      // Chart dimensions
-      const svg = d3.select('#protein-chart');
-      const margin = {top: 20, right: 30, bottom: 40, left: 60};
-      const width = svgElement.clientWidth - margin.left - margin.right;
-      const height = svgElement.clientHeight - margin.top - margin.bottom;
-      
-      const g = svg.append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-      
-      // X axis
-      const x = d3.scaleBand()
-        .domain(dates.map((d, i) => i % 5 === 0 ?
+        entriesForMonth.forEach(dateStr => {
+                    const entry = state.entries[dateStr];
+          
+          const row = document.createElement('tr');
+          
+          const dateCell = document.createElement('td');
+          dateCell.textContent = formatDisplayDate(dateStr);
+          row.appendChild(dateCell);
+          
+          const waterCell = document.createElement('td');
+          waterCell.textContent = `${entry.water} ml`;
+          row.appendChild(waterCell);
+          
+          const proteinCell = document.createElement('td');
+          proteinCell.textContent = `${entry.protein} g`;
+          row.appendChild(proteinCell);
+          
+          const notesCell = document.createElement('td');
+          notesCell.textContent = entry.notes || '-';
+          row.appendChild(notesCell);
+          
+          const actionsCell = document.createElement('td');
+          const editButton = document.createElement('button');
+          editButton.textContent = 'Edit';
+          editButton.style.padding = '0.25rem 0.5rem';
+          editButton.style.fontSize = '0.875rem';
+          
+          editButton.addEventListener('click', () => {
+            document.getElementById('log-date').value = dateStr;
+            document.getElementById('water-intake').value = entry.water;
+            document.getElementById('protein-intake').value = entry.protein;
+            document.getElementById('notes').value = entry.notes || '';
+            
+            switchTab('tracker');
+          });
+          
+          actionsCell.appendChild(editButton);
+          row.appendChild(actionsCell);
+          
+          historyBody.appendChild(row);
