@@ -118,10 +118,39 @@ button:hover {
   background-color: var(--primary-dark);
 }
 
+button.disabled {
+  background-color: var(--gray-300);
+  cursor: not-allowed;
+}
+
+input:disabled, 
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
+}
+
+.progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.progress-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.progress-stats {
+  margin-top: 1rem;
 }
 
 .progress-container {
@@ -145,6 +174,67 @@ button:hover {
   height: 100%;
   background-color: var(--primary);
   transition: width 0.3s ease;
+}
+
+.quick-add {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-group input {
+  width: 80px;
+  padding: 0.5rem;
+}
+
+.input-group button {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Visual containers */
+#water-glass-container, 
+#protein-visual-container {
+  width: 120px;
+  height: 160px;
+  position: relative;
+}
+
+.water-glass {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.glass-outline {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 3;
+}
+
+.water-level {
+  fill: #3b82f6;
+  transition: height 0.5s ease;
+}
+
+.protein-visual {
+  width: 100%;
+  height: 100%;
+}
+
+.protein-outline {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 3;
+}
+
+.protein-fill {
+  fill: #10b981;
+  transition: height 0.5s ease;
 }
 
 .summary-cards {
