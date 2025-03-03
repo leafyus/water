@@ -3,94 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Tracker</title>
+    <title>Water & Protein Tracker</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
             margin: 20px auto;
             padding: 0 10px;
+            max-width: 800px;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .section {
+            flex: 1;
             text-align: center;
-        }
-        input, button {
             padding: 10px;
-            margin: 5px;
-            font-size: 16px;
-        }
-        #log {
-            list-style: none;
-            padding: 0;
-        }
-        #log li {
-            background: #f0f0f0;
-            margin: 5px 0;
-            padding: 10px;
+            background: #f9f9f9;
             border-radius: 5px;
         }
-        @media (max-width: 400px) {
+        input, button {
+            padding: 8px;
+            margin: 5px;
+            font-size: 16px;
+            width: 80%;
+        }
+        .log, .weekly {
+            list-style: none;
+            padding: 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .log li, .weekly li {
+            background: #e0e0e0;
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        h3 {
+            margin: 10px 0;
+        }
+        @media (max-width: 500px) {
+            .container {
+                flex-direction: column;
+            }
             input, button {
                 width: 100%;
-                box-sizing: border-box;
             }
         }
     </style>
 </head>
 <body>
-    <h1>Water Tracker</h1>
-    <h3>Total Today: <span id="total">0</span> ml</h3>
-    <input type="number" id="waterInput" placeholder="Enter ml" min="0">
-    <button onclick="addWater()">Log Water</button>
-    <ul id="log"></ul>
+    <h1>Water & Protein Tracker</h1>
+    <div class="container">
+        <!-- Water Section -->
+        <div class="section">
+            <h2>Water</h2>
+            <h3>Total Today: <span id="waterTotal">0</span> ml</h3>
+            <input type="number" id="waterInput" placeholder="Enter ml" min="0">
+            <button onclick="addEntry('water')">Log Water</button>
+            <ul id="waterLog" class="log"></ul>
+        </div>
+
+        <!-- Protein Section -->
+        <div class="section">
+            <h2>Protein</h2>
+            <h3>Total Today: <span id="proteinTotal">0</span> g</h3>
+            <input type="number" id="proteinInput" placeholder="Enter g" min="0">
+            <button onclick="addEntry('protein')">Log Protein</button>
+            <ul id="proteinLog" class="log"></ul>
+        </div>
+    </div>
+
+    <!-- Weekly Overview -->
+    <h2>Weekly Overview</h2>
+    <ul id="weeklyOverview" class="weekly"></ul>
 
     <script>
-        // Load existing data from localStorage
-        let waterLog = JSON.parse(localStorage.getItem('waterLog')) || [];
-        updateDisplay();
+        // Load data from localStorage
+        let trackerData = JSON.parse(localStorage.getItem('trackerData')) || {
+            water: [],
+            protein: []
+        };
 
-        function addWater() {
-            const amount = parseInt(document.getElementById('waterInput').value);
+        // Days of the week for reference
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        function addEntry(type) {
+            const input = document.getElementById(type + 'Input');
+            const amount = parseInt(input.value);
             if (amount && amount > 0) {
                 const now = new Date();
                 const entry = {
                     amount: amount,
-                    timestamp: now.toLocaleString()
+                    timestamp: now.toISOString(), // Use ISO for easier date handling
                 };
-                waterLog.push(entry);
-                localStorage.setItem('waterLog', JSON.stringify(waterLog));
-                document.getElementById('waterInput').value = ''; // Clear input
+                trackerData[type].push(entry);
+                localStorage.setItem('trackerData', JSON.stringify(trackerData));
+                input.value = ''; // Clear input
                 updateDisplay();
             }
         }
 
         function updateDisplay() {
             const today = new Date().toDateString();
-            const todayEntries = waterLog.filter(entry => 
+
+            // Update Water
+            const waterToday = trackerData.water.filter(entry => 
                 new Date(entry.timestamp).toDateString() === today
             );
-            const total = todayEntries.reduce((sum, entry) => sum + entry.amount, 0);
-            document.getElementById('total').textContent = total;
-
-            const logList = document.getElementById('log');
-            logList.innerHTML = '';
-            todayEntries.forEach(entry => {
+            const waterTotal = waterToday.reduce((sum, entry) => sum + entry.amount, 0);
+            document.getElementById('waterTotal').textContent = waterTotal;
+            const waterLog = document.getElementById('waterLog');
+            waterLog.innerHTML = '';
+            waterToday.forEach(entry => {
                 const li = document.createElement('li');
-                li.textContent = `${entry.amount} ml at ${entry.timestamp}`;
-                logList.appendChild(li);
+                li.textContent = `${entry.amount} ml at ${new Date(entry.timestamp).toLocaleTimeString()}`;
+                waterLog.appendChild(li);
             });
+
+            // Update Protein
+            const proteinToday = trackerData.protein.filter(entry => 
+                new Date(entry.timestamp).toDateString() === today
+            );
+            const proteinTotal = proteinToday.reduce((sum, entry) => sum + entry.amount, 0);
+            document.getElementById('proteinTotal').textContent = proteinTotal;
+            const proteinLog = document.getElementById('proteinLog');
+            proteinLog.innerHTML = '';
+            proteinToday.forEach(entry => {
+                const li = document.createElement('li');
+                li.textContent = `${entry.amount} g at ${new Date(entry.timestamp).toLocaleTimeString()}`;
+                proteinLog.appendChild(li);
+            });
+
+            // Update Weekly Overview
+            updateWeeklyOverview();
         }
 
-        // Optional: Clear data daily (uncomment to enable)
-        /*
-        setInterval(() => {
-            const now = new Date().toDateString();
-            if (localStorage.getItem('lastDate') !== now) {
-                waterLog = [];
-                localStorage.setItem('waterLog', JSON.stringify(waterLog));
-                localStorage.setItem('lastDate', now);
-                updateDisplay();
+        function updateWeeklyOverview() {
+            const weekly = document.getElementById('weeklyOverview');
+            weekly.innerHTML = '';
+            const today = new Date();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
+
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(startOfWeek);
+                day.setDate(startOfWeek.getDate() + i);
+                const dayString = day.toDateString();
+
+                const waterDay = trackerData.water.filter(entry => 
+                    new Date(entry.timestamp).toDateString() === dayString
+                );
+                const waterSum = waterDay.reduce((sum, entry) => sum + entry.amount, 0);
+
+                const proteinDay = trackerData.protein.filter(entry => 
+                    new Date(entry.timestamp).toDateString() === dayString
+                );
+                const proteinSum = proteinDay.reduce((sum, entry) => sum + entry.amount, 0);
+
+                const li = document.createElement('li');
+                li.textContent = `${daysOfWeek[i]} (${day.toLocaleDateString()}): ${waterSum} ml, ${proteinSum} g`;
+                weekly.appendChild(li);
             }
-        }, 60000); // Check every minute
-        */
+        }
+
+        // Initial display update
+        updateDisplay();
     </script>
 </body>
 </html>
