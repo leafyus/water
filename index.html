@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 0 10px;
+            text-align: center;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        #log {
+            list-style: none;
+            padding: 0;
+        }
+        #log li {
+            background: #f0f0f0;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        @media (max-width: 400px) {
+            input, button {
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Water Tracker</h1>
+    <h3>Total Today: <span id="total">0</span> ml</h3>
+    <input type="number" id="waterInput" placeholder="Enter ml" min="0">
+    <button onclick="addWater()">Log Water</button>
+    <ul id="log"></ul>
+
+    <script>
+        // Load existing data from localStorage
+        let waterLog = JSON.parse(localStorage.getItem('waterLog')) || [];
+        updateDisplay();
+
+        function addWater() {
+            const amount = parseInt(document.getElementById('waterInput').value);
+            if (amount && amount > 0) {
+                const now = new Date();
+                const entry = {
+                    amount: amount,
+                    timestamp: now.toLocaleString()
+                };
+                waterLog.push(entry);
+                localStorage.setItem('waterLog', JSON.stringify(waterLog));
+                document.getElementById('waterInput').value = ''; // Clear input
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            const today = new Date().toDateString();
+            const todayEntries = waterLog.filter(entry => 
+                new Date(entry.timestamp).toDateString() === today
+            );
+            const total = todayEntries.reduce((sum, entry) => sum + entry.amount, 0);
+            document.getElementById('total').textContent = total;
+
+            const logList = document.getElementById('log');
+            logList.innerHTML = '';
+            todayEntries.forEach(entry => {
+                const li = document.createElement('li');
+                li.textContent = `${entry.amount} ml at ${entry.timestamp}`;
+                logList.appendChild(li);
+            });
+        }
+
+        // Optional: Clear data daily (uncomment to enable)
+        /*
+        setInterval(() => {
+            const now = new Date().toDateString();
+            if (localStorage.getItem('lastDate') !== now) {
+                waterLog = [];
+                localStorage.setItem('waterLog', JSON.stringify(waterLog));
+                localStorage.setItem('lastDate', now);
+                updateDisplay();
+            }
+        }, 60000); // Check every minute
+        */
+    </script>
+</body>
+</html>
