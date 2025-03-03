@@ -80,6 +80,70 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTrends();
   }
   
+  function createWaterGlassVisual() {
+    const container = document.getElementById('water-glass-container');
+    if (!container) return;
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    // Create SVG element
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'water-glass');
+    svg.setAttribute('viewBox', '0 0 100 160');
+    
+    // Glass outline (slightly tapered glass)
+    const glassOutline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    glassOutline.setAttribute('class', 'glass-outline');
+    glassOutline.setAttribute('d', 'M25,10 L20,150 C20,155 80,155 80,150 L75,10 Z');
+    
+    // Water level (will be updated dynamically)
+    const waterLevel = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    waterLevel.setAttribute('class', 'water-level');
+    waterLevel.setAttribute('id', 'water-level');
+    
+    // Add elements to SVG
+    svg.appendChild(glassOutline);
+    svg.appendChild(waterLevel);
+    
+    // Add SVG to container
+    container.appendChild(svg);
+    
+    return waterLevel;
+  }
+  
+  function createProteinVisual() {
+    const container = document.getElementById('protein-visual-container');
+    if (!container) return;
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    // Create SVG element
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'protein-visual');
+    svg.setAttribute('viewBox', '0 0 100 160');
+    
+    // Steak outline
+    const steakOutline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    steakOutline.setAttribute('class', 'protein-outline');
+    steakOutline.setAttribute('d', 'M20,40 C20,20 40,15 50,15 C60,15 80,20 80,40 C90,60 90,80 80,100 C60,130 40,130 20,100 C10,80 10,60 20,40 Z');
+    
+    // Protein fill (will be updated dynamically)
+    const proteinFill = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    proteinFill.setAttribute('class', 'protein-fill');
+    proteinFill.setAttribute('id', 'protein-fill');
+    
+    // Add elements to SVG
+    svg.appendChild(steakOutline);
+    svg.appendChild(proteinFill);
+    
+    // Add SVG to container
+    container.appendChild(svg);
+    
+    return proteinFill;
+  }
+  
   function updateDashboard() {
     console.log("Updating dashboard");
     const today = formatDate(state.currentDate);
@@ -98,6 +162,35 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('protein-progress-bar').style.width = `${proteinPercent}%`;
     document.getElementById('protein-progress-text').textContent = `${todayEntry.protein}/${state.settings.proteinGoal} g`;
+    
+    // Update visual representations
+    
+    // 1. Water glass
+    const waterLevel = document.getElementById('water-level');
+    if (waterLevel) {
+      // Calculate level height based on percentage (max height around 140)
+      const levelHeight = 140 * (waterPercent / 100);
+      const yPos = 150 - levelHeight;
+      
+      // Draw water level
+      waterLevel.setAttribute('d', `M20,${yPos} L80,${yPos} L80,150 C80,155 20,155 20,150 Z`);
+    } else {
+      createWaterGlassVisual();
+    }
+    
+    // 2. Protein visual
+    const proteinFill = document.getElementById('protein-fill');
+    if (proteinFill) {
+      if (proteinPercent === 0) {
+        proteinFill.setAttribute('d', '');
+      } else {
+        // Calculate what portion of the steak to fill based on percentage
+        const yPos = 130 - (proteinPercent / 100 * 115);
+        proteinFill.setAttribute('d', `M20,${yPos} C20,${yPos} 40,${yPos} 50,${yPos} C60,${yPos} 80,${yPos} 80,${yPos} C90,${Math.min(yPos + 20, 100)} 90,80 80,100 C60,130 40,130 20,100 C10,80 10,${Math.min(yPos + 20, 80)} 20,${yPos} Z`);
+      }
+    } else {
+      createProteinVisual();
+    }
     
     // Calculate weekly averages
     let waterTotal = 0;
@@ -425,8 +518,50 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   // Initialize app
-  function initApp() {
+  // Check if a date is today
+function isToday(dateStr) {
+    const today = formatDate(new Date());
+    return dateStr === today;
+  }
+  
+  // Enable or disable form based on date
+  function updateFormEditability() {
+    const dateInput = document.getElementById('log-date');
+    const waterInput = document.getElementById('water-intake');
+    const proteinInput = document.getElementById('protein-intake');
+    const notesInput = document.getElementById('notes');
+    const submitButton = document.getElementById('save-entry');
+    
+    if (!dateInput || !waterInput || !proteinInput || !notesInput || !submitButton) {
+      console.error("Form elements not found");
+      return;
+    }
+    
+    const selectedDate = dateInput.value;
+    const isCurrentDay = isToday(selectedDate);
+    
+    // Enable/disable form elements
+    waterInput.disabled = !isCurrentDay;
+    proteinInput.disabled = !isCurrentDay;
+    notesInput.disabled = !isCurrentDay;
+    submitButton.disabled = !isCurrentDay;
+    
+    // Visual feedback
+    if (isCurrentDay) {
+      submitButton.classList.remove('disabled');
+      submitButton.textContent = 'Save Entry';
+    } else {
+      submitButton.classList.add('disabled');
+      submitButton.textContent = 'Editing past/future entries not allowed';
+    }
+  }
+
+function initApp() {
     console.log("Initializing app");
+    
+    // Create visual elements
+    createWaterGlassVisual();
+    createProteinVisual();
     
     // Set default date to today
     document.getElementById('log-date').value = formatDate(state.currentDate);
@@ -442,6 +577,49 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
     
+    // Add dashboard quick-add handlers
+    const dashboardAddWater = document.getElementById('dashboard-add-water');
+    if (dashboardAddWater) {
+      dashboardAddWater.onclick = function() {
+        const amount = parseInt(document.getElementById('dashboard-water').value) || 0;
+        if (amount > 0) {
+          const today = formatDate(state.currentDate);
+          const currentEntry = getEntryForDate(today);
+          
+          updateEntry(today, {
+            water: currentEntry.water + amount
+          });
+          
+          showToast(`Added ${amount}ml of water!`);
+          document.getElementById('dashboard-water').value = '';
+        }
+      };
+    }
+    
+    const dashboardAddProtein = document.getElementById('dashboard-add-protein');
+    if (dashboardAddProtein) {
+      dashboardAddProtein.onclick = function() {
+        const amount = parseInt(document.getElementById('dashboard-protein').value) || 0;
+        if (amount > 0) {
+          const today = formatDate(state.currentDate);
+          const currentEntry = getEntryForDate(today);
+          
+          updateEntry(today, {
+            protein: currentEntry.protein + amount
+          });
+          
+          showToast(`Added ${amount}g of protein!`);
+          document.getElementById('dashboard-protein').value = '';
+        }
+      };
+    }
+    
+    // Date change handler to restrict editing
+    const dateInput = document.getElementById('log-date');
+    if (dateInput) {
+      dateInput.addEventListener('change', updateFormEditability);
+    }
+    
     // Add event listener for log form submission
     const logForm = document.getElementById('log-form');
     if (logForm) {
@@ -450,6 +628,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Log form submitted");
         
         const date = document.getElementById('log-date').value;
+        
+        // Only allow editing today's entry
+        if (!isToday(date)) {
+          showToast('Only today\'s entries can be edited');
+          return;
+        }
+        
         const water = parseInt(document.getElementById('water-intake').value) || 0;
         const protein = parseInt(document.getElementById('protein-intake').value) || 0;
         const notes = document.getElementById('notes').value;
