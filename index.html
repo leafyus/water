@@ -113,7 +113,7 @@
             <input type="text" id="notes" placeholder="Any notes about today's intake">
           </div>
           
-          <button type="submit">Save Entry</button>
+          <button type="submit" id="save-entry" class="action-button">Save Entry</button>
         </form>
       </div>
       
@@ -123,13 +123,13 @@
           <div class="form-group">
             <label for="quick-water">Add Water (ml)</label>
             <input type="number" id="quick-water" min="0" step="50" placeholder="e.g. 250">
-            <button id="add-water" type="button" style="margin-top: 0.5rem; width: 100%;">+ Add Water</button>
+            <button id="add-water" type="button" class="action-button" style="margin-top: 0.5rem; width: 100%;">+ Add Water</button>
           </div>
           
           <div class="form-group">
             <label for="quick-protein">Add Protein (g)</label>
             <input type="number" id="quick-protein" min="0" step="1" placeholder="e.g. 20">
-            <button id="add-protein" type="button" style="margin-top: 0.5rem; width: 100%;">+ Add Protein</button>
+            <button id="add-protein" type="button" class="action-button" style="margin-top: 0.5rem; width: 100%;">+ Add Protein</button>
           </div>
         </div>
       </div>
@@ -208,6 +208,22 @@
   
   <!-- Include Chart.js for better charting capabilities -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="script.js"></script>
+  <!-- Add a debugging helper -->
+<div id="debug" style="display:none; position:fixed; bottom:0; left:0; background:white; padding:10px; border:1px solid #ccc; max-height:200px; overflow:auto; width:100%;"></div>
+
+<script>
+// Debug helper
+function debug(message) {
+  const debugEl = document.getElementById('debug');
+  debugEl.style.display = 'block';
+  const p = document.createElement('p');
+  p.textContent = message;
+  debugEl.appendChild(p);
+  console.log(message);
+}
+
+// Include the main script
+</script>
+<script src="script.js"></script>
 </body>
 </html>
