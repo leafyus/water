@@ -42,23 +42,51 @@
       
       <div class="card">
         <h2>Today's Progress</h2>
-        <div class="progress-container">
-          <div class="progress-label">
-            <span>Water Intake</span>
-            <span id="water-progress-text">0/3000 ml</span>
+        <div class="progress-grid">
+          <div class="progress-visual">
+            <div id="water-glass-container">
+              <!-- Water glass SVG will be inserted here -->
+            </div>
+            <div class="quick-add">
+              <div class="input-group">
+                <input type="number" id="dashboard-water" min="0" step="50" placeholder="250">
+                <button type="button" id="dashboard-add-water" class="action-button">+ Add Water</button>
+              </div>
+            </div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-value" id="water-progress-bar" style="width: 0%;"></div>
+          
+          <div class="progress-visual">
+            <div id="protein-visual-container">
+              <!-- Protein visual SVG will be inserted here -->
+            </div>
+            <div class="quick-add">
+              <div class="input-group">
+                <input type="number" id="dashboard-protein" min="0" step="10" placeholder="20">
+                <button type="button" id="dashboard-add-protein" class="action-button">+ Add Protein</button>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div class="progress-container">
-          <div class="progress-label">
-            <span>Protein Intake</span>
-            <span id="protein-progress-text">0/160 g</span>
+        <div class="progress-stats">
+          <div class="progress-container">
+            <div class="progress-label">
+              <span>Water Intake</span>
+              <span id="water-progress-text">0/3000 ml</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-value" id="water-progress-bar" style="width: 0%;"></div>
+            </div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-value" id="protein-progress-bar" style="width: 0%;"></div>
+          
+          <div class="progress-container">
+            <div class="progress-label">
+              <span>Protein Intake</span>
+              <span id="protein-progress-text">0/160 g</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-value" id="protein-progress-bar" style="width: 0%;"></div>
+            </div>
           </div>
         </div>
       </div>
