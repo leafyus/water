@@ -41,6 +41,18 @@ header {
   margin-bottom: 2rem;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.header-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background-color: var(--gray-100);
+  color: var(--gray-800);
+}
+
 h1 {
   font-size: 1.5rem;
   font-weight: 700;
@@ -80,6 +92,11 @@ h1 {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+.auth-card {
+  max-width: 500px;
+  margin: 2rem auto;
 }
 
 .form-group {
@@ -174,67 +191,6 @@ button:disabled {
   height: 100%;
   background-color: var(--primary);
   transition: width 0.3s ease;
-}
-
-.quick-add {
-  width: 100%;
-  margin-top: 0.5rem;
-}
-
-.input-group {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.input-group input {
-  width: 80px;
-  padding: 0.5rem;
-}
-
-.input-group button {
-  padding: 0.5rem;
-  font-size: 0.875rem;
-}
-
-/* Visual containers */
-#water-glass-container, 
-#protein-visual-container {
-  width: 120px;
-  height: 160px;
-  position: relative;
-}
-
-.water-glass {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.glass-outline {
-  fill: none;
-  stroke: #ccc;
-  stroke-width: 3;
-}
-
-.water-level {
-  fill: #3b82f6;
-  transition: height 0.5s ease;
-}
-
-.protein-visual {
-  width: 100%;
-  height: 100%;
-}
-
-.protein-outline {
-  fill: none;
-  stroke: #ccc;
-  stroke-width: 3;
-}
-
-.protein-fill {
-  fill: #10b981;
-  transition: height 0.5s ease;
 }
 
 .summary-cards {
@@ -382,6 +338,67 @@ tr:hover {
   background-color: #10b981;
 }
 
+.quick-add {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-group input {
+  width: 80px;
+  padding: 0.5rem;
+}
+
+.input-group button {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Visual containers */
+#water-glass-container, 
+#protein-visual-container {
+  width: 120px;
+  height: 160px;
+  position: relative;
+}
+
+.water-glass {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.glass-outline {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 3;
+}
+
+.water-level {
+  fill: #3b82f6;
+  transition: height 0.5s ease;
+}
+
+.protein-visual {
+  width: 100%;
+  height: 100%;
+}
+
+.protein-outline {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 3;
+}
+
+.protein-fill {
+  fill: #10b981;
+  transition: height 0.5s ease;
+}
+
 .chart-container {
   height: 300px;
   margin-bottom: 2rem;
@@ -456,13 +473,65 @@ tr:hover {
   opacity: 1;
 }
 
+.toast.error {
+  background-color: var(--danger);
+}
+
+.auth-switch {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.auth-switch a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.overlay.active {
+  display: flex;
+}
+
+.loader {
+  border: 5px solid var(--gray-200);
+  border-top: 5px solid var(--primary);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: 1fr;
   }
+  
+  .progress-grid {
+    grid-template-columns: 1fr;
+  }
+  
   .calendar {
     gap: 0.25rem;
   }
+  
   .day-number {
     font-size: 1rem;
   }
