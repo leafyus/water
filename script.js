@@ -1,25 +1,25 @@
 // Debug helper to check if script is loading
 console.log("Script loaded");
 
+// Global state management
+const state = {
+  entries: {},
+  settings: {
+    waterGoal: 3000,
+    proteinGoal: 160
+  },
+  currentDate: new Date(),
+  selectedDate: new Date(),
+  currentMonth: new Date(),
+  selectedMonth: new Date().toISOString().slice(0, 7) // YYYY-MM format
+};
+
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log("DOM fully loaded");
   
-  // State management
-  const state = {
-    entries: JSON.parse(localStorage.getItem('nutrientTrackerData')) || {},
-    settings: JSON.parse(localStorage.getItem('nutrientTrackerSettings')) || {
-      waterGoal: 3000,  // Default 3000 ml
-      proteinGoal: 160  // Default 160 g
-    },
-    currentDate: new Date(),
-    selectedDate: new Date(),
-    currentMonth: new Date(),
-    selectedMonth: new Date().toISOString().slice(0, 7) // YYYY-MM format
-  };
-  
-  // Debug the initial state
-  console.log("Initial state:", JSON.stringify(state));
+  // Initialize Firebase Auth listener
+  initAuthUI();
   
   // Utility functions
   function formatDate(date) {
@@ -35,14 +35,185 @@ document.addEventListener('DOMContentLoaded', function() {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }
   
-  function saveData() {
-    localStorage.setItem('nutrientTrackerData', JSON.stringify(state.entries));
-    console.log("Data saved to localStorage", state.entries);
+  function showToast(message, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    
+    if (isError) {
+      toast.classList.add('error');
+    } else {
+      toast.classList.remove('error');
+    }
+    
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
   }
   
-  function saveSettings() {
-    localStorage.setItem('nutrientTrackerSettings', JSON.stringify(state.settings));
-    console.log("Settings saved to localStorage", state.settings);
+  function showLoading() {
+    document.getElementById('loading-overlay').classList.add('active');
+  }
+  
+  function hideLoading() {
+    document.getElementById('loading-overlay').classList.remove('active');
+  }
+  
+  // Firebase specific functions
+  function initAuthUI() {
+    // Handle login form
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      showLoading();
+      
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        document.getElementById('login-form').reset();
+        showToast('Login successful!');
+      } catch (error) {
+        console.error('Login error:', error);
+        showToast(`Login failed: ${error.message}`, true);
+      } finally {
+        hideLoading();
+      }
+    });
+    
+    // Handle registration form
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('register-email').value;
+      const password = document.getElementById('register-password').value;
+      const confirm = document.getElementById('register-confirm').value;
+      
+      if (password !== confirm) {
+        showToast('Passwords do not match', true);
+        return;
+      }
+      
+      showLoading();
+      
+      try {
+        await auth.createUserWithEmailAndPassword(email, password);
+        document.getElementById('register-form').reset();
+        showToast('Registration successful!');
+      } catch (error) {
+        console.error('Registration error:', error);
+        showToast(`Registration failed: ${error.message}`, true);
+      } finally {
+        hideLoading();
+      }
+    });
+    
+    // Toggle between login and registration forms
+    document.getElementById('show-register').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('register-section').style.display = 'block';
+    });
+    
+    document.getElementById('show-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('register-section').style.display = 'none';
+    });
+    
+    // Logout button
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      showLoading();
+      try {
+        await auth.signOut();
+        showToast('Logged out successfully');
+      } catch (error) {
+        console.error('Logout error:', error);
+        showToast('Logout failed', true);
+      } finally {
+        hideLoading();
+      }
+    });
+    
+    // Listen for auth state changes
+    auth.onAuthStateChanged(user => {
+      hideLoading();
+      if (user) {
+        // User is signed in
+        console.log('User logged in:', user.email);
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('app-container').style.display = 'block';
+        
+        // Set up user data reference
+        userDataRef = database.ref(`users/${user.uid}`);
+        
+        // Initialize app when user is logged in
+        initApp();
+      } else {
+        // User is signed out
+        console.log('User logged out');
+        document.getElementById('auth-container').style.display = 'block';
+        document.getElementById('app-container').style.display = 'none';
+      }
+    });
+  }
+  
+  async function fetchUserSettings() {
+    try {
+      const snapshot = await userDataRef.child('settings').once('value');
+      const userSettings = snapshot.val();
+      
+      if (userSettings) {
+        state.settings = userSettings;
+        console.log('Fetched user settings:', state.settings);
+      } else {
+        // If no settings found, initialize default settings
+        await saveUserSettings();
+      }
+    } catch (error) {
+      console.error('Error fetching user settings:', error);
+      showToast('Failed to load settings', true);
+    }
+  }
+  
+  async function saveUserSettings() {
+    try {
+      await userDataRef.child('settings').set(state.settings);
+      console.log('Settings saved to Firebase:', state.settings);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      showToast('Failed to save settings', true);
+    }
+  }
+  
+  async function fetchUserEntries() {
+    try {
+      const snapshot = await userDataRef.child('entries').once('value');
+      const entries = snapshot.val() || {};
+      
+      state.entries = entries;
+      console.log('Fetched user entries:', Object.keys(state.entries).length);
+      
+      updateUI();
+    } catch (error) {
+      console.error('Error fetching entries:', error);
+      showToast('Failed to load your data', true);
+    }
+  }
+  
+  function listenForEntryChanges() {
+    // Set up real-time listener for entry changes
+    userDataRef.child('entries').on('value', (snapshot) => {
+      const entries = snapshot.val() || {};
+      
+      // Only update if the data has changed
+      if (JSON.stringify(entries) !== JSON.stringify(state.entries)) {
+        console.log('Entries updated from Firebase');
+        state.entries = entries;
+        updateUI();
+      }
+    });
   }
   
   function getEntryForDate(date) {
@@ -50,25 +221,63 @@ document.addEventListener('DOMContentLoaded', function() {
     return state.entries[dateKey] || { water: 0, protein: 0, notes: '' };
   }
   
-  function updateEntry(date, data) {
+  async function updateEntry(date, data) {
     const dateKey = typeof date === 'string' ? date : formatDate(date);
-    state.entries[dateKey] = {
-      ...getEntryForDate(dateKey),
-      ...data
-    };
-    console.log(`Updated entry for ${dateKey}:`, state.entries[dateKey]);
-    saveData();
-    updateUI();
-  }
-
-  function showToast(message) {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.classList.add('show');
     
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 3000);
+    try {
+      // Update local state
+      state.entries[dateKey] = {
+        ...getEntryForDate(dateKey),
+        ...data
+      };
+      
+      // Update Firebase
+      await userDataRef.child(`entries/${dateKey}`).update(state.entries[dateKey]);
+      console.log(`Updated entry for ${dateKey}:`, state.entries[dateKey]);
+      
+      // We don't need to call updateUI() here as the Firebase listener will trigger that
+    } catch (error) {
+      console.error('Error updating entry:', error);
+      showToast('Failed to save data', true);
+    }
+  }
+  
+  // Check if a date is today
+  function isToday(dateStr) {
+    const today = formatDate(new Date());
+    return dateStr === today;
+  }
+  
+  // Enable or disable form based on date
+  function updateFormEditability() {
+    const dateInput = document.getElementById('log-date');
+    const waterInput = document.getElementById('water-intake');
+    const proteinInput = document.getElementById('protein-intake');
+    const notesInput = document.getElementById('notes');
+    const submitButton = document.getElementById('save-entry');
+    
+    if (!dateInput || !waterInput || !proteinInput || !notesInput || !submitButton) {
+      console.error("Form elements not found");
+      return;
+    }
+    
+    const selectedDate = dateInput.value;
+    const isCurrentDay = isToday(selectedDate);
+    
+    // Enable/disable form elements
+    waterInput.disabled = !isCurrentDay;
+    proteinInput.disabled = !isCurrentDay;
+    notesInput.disabled = !isCurrentDay;
+    submitButton.disabled = !isCurrentDay;
+    
+    // Visual feedback
+    if (isCurrentDay) {
+      submitButton.classList.remove('disabled');
+      submitButton.textContent = 'Save Entry';
+    } else {
+      submitButton.classList.add('disabled');
+      submitButton.textContent = 'Editing past/future entries not allowed';
+    }
   }
   
   // UI Management
@@ -295,6 +504,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Switch to tracker tab
         switchTab('tracker');
         
+        // Update form editability
+        updateFormEditability();
+        
         // Update calendar
         updateCalendar();
       });
@@ -380,6 +592,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('notes').value = entry.notes || '';
         
         switchTab('tracker');
+        updateFormEditability();
       });
       
       actionsCell.appendChild(editButton);
@@ -517,283 +730,251 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById(tabId).classList.add('active');
   }
   
-  // Initialize app
-  // Check if a date is today
-function isToday(dateStr) {
-    const today = formatDate(new Date());
-    return dateStr === today;
-  }
-  
-  // Enable or disable form based on date
-  function updateFormEditability() {
-    const dateInput = document.getElementById('log-date');
-    const waterInput = document.getElementById('water-intake');
-    const proteinInput = document.getElementById('protein-intake');
-    const notesInput = document.getElementById('notes');
-    const submitButton = document.getElementById('save-entry');
-    
-    if (!dateInput || !waterInput || !proteinInput || !notesInput || !submitButton) {
-      console.error("Form elements not found");
-      return;
-    }
-    
-    const selectedDate = dateInput.value;
-    const isCurrentDay = isToday(selectedDate);
-    
-    // Enable/disable form elements
-    waterInput.disabled = !isCurrentDay;
-    proteinInput.disabled = !isCurrentDay;
-    notesInput.disabled = !isCurrentDay;
-    submitButton.disabled = !isCurrentDay;
-    
-    // Visual feedback
-    if (isCurrentDay) {
-      submitButton.classList.remove('disabled');
-      submitButton.textContent = 'Save Entry';
-    } else {
-      submitButton.classList.add('disabled');
-      submitButton.textContent = 'Editing past/future entries not allowed';
-    }
-  }
-
-function initApp() {
+  // Initialize app after login
+  async function initApp() {
     console.log("Initializing app");
+    showLoading();
     
-    // Create visual elements
-    createWaterGlassVisual();
-    createProteinVisual();
-    
-    // Set default date to today
-    document.getElementById('log-date').value = formatDate(state.currentDate);
-    
-    // Set settings values
-    document.getElementById('water-goal').value = state.settings.waterGoal;
-    document.getElementById('protein-goal').value = state.settings.proteinGoal;
-    
-    // Add tab switching event listeners
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        switchTab(tab.dataset.tab);
-      });
-    });
-    
-    // Add dashboard quick-add handlers
-    const dashboardAddWater = document.getElementById('dashboard-add-water');
-    if (dashboardAddWater) {
-      dashboardAddWater.onclick = function() {
-        const amount = parseInt(document.getElementById('dashboard-water').value) || 0;
-        if (amount > 0) {
-          const today = formatDate(state.currentDate);
-          const currentEntry = getEntryForDate(today);
-          
-          updateEntry(today, {
-            water: currentEntry.water + amount
-          });
-          
-          showToast(`Added ${amount}ml of water!`);
-          document.getElementById('dashboard-water').value = '';
-        }
-      };
-    }
-    
-    const dashboardAddProtein = document.getElementById('dashboard-add-protein');
-    if (dashboardAddProtein) {
-      dashboardAddProtein.onclick = function() {
-        const amount = parseInt(document.getElementById('dashboard-protein').value) || 0;
-        if (amount > 0) {
-          const today = formatDate(state.currentDate);
-          const currentEntry = getEntryForDate(today);
-          
-          updateEntry(today, {
-            protein: currentEntry.protein + amount
-          });
-          
-          showToast(`Added ${amount}g of protein!`);
-          document.getElementById('dashboard-protein').value = '';
-        }
-      };
-    }
-    
-    // Date change handler to restrict editing
-    const dateInput = document.getElementById('log-date');
-    if (dateInput) {
-      dateInput.addEventListener('change', updateFormEditability);
-    }
-    
-    // Add event listener for log form submission
-    const logForm = document.getElementById('log-form');
-    if (logForm) {
-      logForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        console.log("Log form submitted");
-        
-        const date = document.getElementById('log-date').value;
-        
-        // Only allow editing today's entry
-        if (!isToday(date)) {
-          showToast('Only today\'s entries can be edited');
-          return;
-        }
-        
-        const water = parseInt(document.getElementById('water-intake').value) || 0;
-        const protein = parseInt(document.getElementById('protein-intake').value) || 0;
-        const notes = document.getElementById('notes').value;
-        
-        updateEntry(date, {
-          water,
-          protein,
-          notes
+    try {
+      // Load settings and entries from Firebase
+      await fetchUserSettings();
+      await fetchUserEntries();
+      
+      // Set up real-time data sync
+      listenForEntryChanges();
+      
+      // Create visual elements
+      createWaterGlassVisual();
+      createProteinVisual();
+      
+      // Set default date to today
+      document.getElementById('log-date').value = formatDate(state.currentDate);
+      
+      // Set settings values
+      document.getElementById('water-goal').value = state.settings.waterGoal;
+      document.getElementById('protein-goal').value = state.settings.proteinGoal;
+      
+      // Add tab switching event listeners
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          switchTab(tab.dataset.tab);
         });
-        
-        showToast('Entry saved successfully!');
-        
-        // Reset form
-        document.getElementById('water-intake').value = '';
-        document.getElementById('protein-intake').value = '';
-        document.getElementById('notes').value = '';
-        
-        // Switch to dashboard
-        switchTab('dashboard');
       });
-    } else {
-      console.error("Log form not found");
-    }
-    
-    // Quick add buttons with direct click handlers
-    const addWaterBtn = document.getElementById('add-water');
-    if (addWaterBtn) {
-      addWaterBtn.onclick = function() {
-        console.log("Add water button clicked");
-        const amount = parseInt(document.getElementById('quick-water').value) || 0;
-        if (amount > 0) {
-          const today = formatDate(state.currentDate);
-          const currentEntry = getEntryForDate(today);
-          
-          updateEntry(today, {
-            water: currentEntry.water + amount
-          });
-          
-          showToast(`Added ${amount}ml of water!`);
-          document.getElementById('quick-water').value = '';
-        }
-      };
-    } else {
-      console.error("Add water button not found");
-    }
-    
-    const addProteinBtn = document.getElementById('add-protein');
-    if (addProteinBtn) {
-      addProteinBtn.onclick = function() {
-        console.log("Add protein button clicked");
-        const amount = parseInt(document.getElementById('quick-protein').value) || 0;
-        if (amount > 0) {
-          const today = formatDate(state.currentDate);
-          const currentEntry = getEntryForDate(today);
-          
-          updateEntry(today, {
-            protein: currentEntry.protein + amount
-          });
-          
-          showToast(`Added ${amount}g of protein!`);
-          document.getElementById('quick-protein').value = '';
-        }
-      };
-    } else {
-      console.error("Add protein button not found");
-    }
-    
-    // Calendar navigation
-    const prevMonthBtn = document.getElementById('prev-month');
-    if (prevMonthBtn) {
-      prevMonthBtn.onclick = function() {
-        console.log("Previous month button clicked");
-        state.currentMonth.setMonth(state.currentMonth.getMonth() - 1);
-        updateCalendar();
-      };
-    } else {
-      console.error("Previous month button not found");
-    }
-    
-    const nextMonthBtn = document.getElementById('next-month');
-    if (nextMonthBtn) {
-      nextMonthBtn.onclick = function() {
-        console.log("Next month button clicked");
-        state.currentMonth.setMonth(state.currentMonth.getMonth() + 1);
-        updateCalendar();
-      };
-    } else {
-      console.error("Next month button not found");
-    }
-    
-    // History month selection
-    const historyMonth = document.getElementById('history-month');
-    if (historyMonth) {
-      historyMonth.onchange = function() {
-        console.log("History month changed:", this.value);
-        state.selectedMonth = this.value;
-        updateHistory();
-      };
-    } else {
-      console.error("History month select not found");
-    }
-    
-    // Settings modal
-    const settingsBtn = document.getElementById('settings-btn');
-    if (settingsBtn) {
-      settingsBtn.onclick = function() {
-        console.log("Settings button clicked");
-        document.getElementById('settings-modal').classList.add('active');
-      };
-    } else {
-      console.error("Settings button not found");
-    }
-    
-    const closeSettingsBtn = document.getElementById('close-settings');
-    if (closeSettingsBtn) {
-      closeSettingsBtn.onclick = function() {
-        console.log("Close settings button clicked");
-        document.getElementById('settings-modal').classList.remove('active');
-      };
-    } else {
-      console.error("Close settings button not found");
-    }
-    
-    const settingsForm = document.getElementById('settings-form');
-    if (settingsForm) {
-      settingsForm.onsubmit = function(e) {
-        e.preventDefault();
-        console.log("Settings form submitted");
-        
-        const waterGoal = parseInt(document.getElementById('water-goal').value) || 3000;
-        const proteinGoal = parseInt(document.getElementById('protein-goal').value) || 160;
-        
-        state.settings = {
-          waterGoal,
-          proteinGoal
+      
+      // Add dashboard quick-add handlers
+      const dashboardAddWater = document.getElementById('dashboard-add-water');
+      if (dashboardAddWater) {
+        dashboardAddWater.onclick = function() {
+          const amount = parseInt(document.getElementById('dashboard-water').value) || 0;
+          if (amount > 0) {
+            const today = formatDate(state.currentDate);
+            const currentEntry = getEntryForDate(today);
+            
+            updateEntry(today, {
+              water: currentEntry.water + amount
+            });
+            
+            showToast(`Added ${amount}ml of water!`);
+            document.getElementById('dashboard-water').value = '';
+          }
         };
-        
-        saveSettings();
-        updateUI();
-        
-        document.getElementById('settings-modal').classList.remove('active');
-        showToast('Settings saved successfully!');
-      };
-    } else {
-      console.error("Settings form not found");
+      }
+      
+      const dashboardAddProtein = document.getElementById('dashboard-add-protein');
+      if (dashboardAddProtein) {
+        dashboardAddProtein.onclick = function() {
+          const amount = parseInt(document.getElementById('dashboard-protein').value) || 0;
+          if (amount > 0) {
+            const today = formatDate(state.currentDate);
+            const currentEntry = getEntryForDate(today);
+            
+            updateEntry(today, {
+              protein: currentEntry.protein + amount
+            });
+            
+            showToast(`Added ${amount}g of protein!`);
+            document.getElementById('dashboard-protein').value = '';
+          }
+        };
+      }
+      
+      // Quick add buttons with direct click handlers
+      const addWaterBtn = document.getElementById('add-water');
+      if (addWaterBtn) {
+        addWaterBtn.onclick = function() {
+          console.log("Add water button clicked");
+          const amount = parseInt(document.getElementById('quick-water').value) || 0;
+          if (amount > 0) {
+            const today = formatDate(state.currentDate);
+            const currentEntry = getEntryForDate(today);
+            
+            updateEntry(today, {
+              water: currentEntry.water + amount
+            });
+            
+            showToast(`Added ${amount}ml of water!`);
+            document.getElementById('quick-water').value = '';
+          }
+        };
+      } else {
+        console.error("Add water button not found");
+      }
+      
+      const addProteinBtn = document.getElementById('add-protein');
+      if (addProteinBtn) {
+        addProteinBtn.onclick = function() {
+          console.log("Add protein button clicked");
+          const amount = parseInt(document.getElementById('quick-protein').value) || 0;
+          if (amount > 0) {
+            const today = formatDate(state.currentDate);
+            const currentEntry = getEntryForDate(today);
+            
+            updateEntry(today, {
+              protein: currentEntry.protein + amount
+            });
+            
+            showToast(`Added ${amount}g of protein!`);
+            document.getElementById('quick-protein').value = '';
+          }
+        };
+      } else {
+        console.error("Add protein button not found");
+      }
+      
+      // Date change handler to restrict editing
+      const dateInput = document.getElementById('log-date');
+      if (dateInput) {
+        dateInput.addEventListener('change', updateFormEditability);
+      }
+      
+      // Add event listener for log form submission
+      const logForm = document.getElementById('log-form');
+      if (logForm) {
+        logForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          console.log("Log form submitted");
+          
+          const date = document.getElementById('log-date').value;
+          
+          // Only allow editing today's entry
+          if (!isToday(date)) {
+            showToast('Only today\'s entries can be edited', true);
+            return;
+          }
+          
+          const water = parseInt(document.getElementById('water-intake').value) || 0;
+          const protein = parseInt(document.getElementById('protein-intake').value) || 0;
+          const notes = document.getElementById('notes').value;
+          
+          updateEntry(date, {
+            water,
+            protein,
+            notes
+          });
+          
+          showToast('Entry saved successfully!');
+          
+          // Reset form
+          document.getElementById('water-intake').value = '';
+          document.getElementById('protein-intake').value = '';
+          document.getElementById('notes').value = '';
+          
+          // Switch to dashboard
+          switchTab('dashboard');
+        });
+      } else {
+        console.error("Log form not found");
+      }
+      
+      // Calendar navigation
+      const prevMonthBtn = document.getElementById('prev-month');
+      if (prevMonthBtn) {
+        prevMonthBtn.onclick = function() {
+          console.log("Previous month button clicked");
+          state.currentMonth.setMonth(state.currentMonth.getMonth() - 1);
+          updateCalendar();
+        };
+      } else {
+        console.error("Previous month button not found");
+      }
+      
+      const nextMonthBtn = document.getElementById('next-month');
+      if (nextMonthBtn) {
+        nextMonthBtn.onclick = function() {
+          console.log("Next month button clicked");
+          state.currentMonth.setMonth(state.currentMonth.getMonth() + 1);
+          updateCalendar();
+        };
+      } else {
+        console.error("Next month button not found");
+      }
+      
+      // History month selection
+      const historyMonth = document.getElementById('history-month');
+      if (historyMonth) {
+        historyMonth.onchange = function() {
+          console.log("History month changed:", this.value);
+          state.selectedMonth = this.value;
+          updateHistory();
+        };
+      } else {
+        console.error("History month select not found");
+      }
+      
+      // Settings modal
+      const settingsBtn = document.getElementById('settings-btn');
+      if (settingsBtn) {
+        settingsBtn.onclick = function() {
+          console.log("Settings button clicked");
+          document.getElementById('settings-modal').classList.add('active');
+        };
+      } else {
+        console.error("Settings button not found");
+      }
+      
+      const closeSettingsBtn = document.getElementById('close-settings');
+      if (closeSettingsBtn) {
+        closeSettingsBtn.onclick = function() {
+          console.log("Close settings button clicked");
+          document.getElementById('settings-modal').classList.remove('active');
+        };
+      } else {
+        console.error("Close settings button not found");
+      }
+      
+      const settingsForm = document.getElementById('settings-form');
+      if (settingsForm) {
+        settingsForm.onsubmit = function(e) {
+          e.preventDefault();
+          console.log("Settings form submitted");
+          
+          const waterGoal = parseInt(document.getElementById('water-goal').value) || 3000;
+          const proteinGoal = parseInt(document.getElementById('protein-goal').value) || 160;
+          
+          state.settings = {
+            waterGoal,
+            proteinGoal
+          };
+          
+          saveUserSettings();
+          updateUI();
+          
+          document.getElementById('settings-modal').classList.remove('active');
+          showToast('Settings saved successfully!');
+        };
+      } else {
+        console.error("Settings form not found");
+      }
+      
+      // Check initial form editability
+      updateFormEditability();
+      
+      console.log("App initialization complete");
+    } catch (error) {
+      console.error("Error initializing app:", error);
+      showToast("Error loading application data", true);
+    } finally {
+      hideLoading();
     }
-    
-    // Initialize UI
-    updateUI();
-    
-    console.log("App initialization complete");
   }
-  
-  // Enable debug mode
-  const debugElement = document.getElementById('debug');
-  if (debugElement) {
-    debugElement.style.display = 'block';
-  }
-  
-  // Initialize the app
-  initApp();
 });
