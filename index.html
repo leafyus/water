@@ -5,12 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nutrient Tracker</title>
   <link rel="stylesheet" href="styles.css">
+  <!-- Import Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <div class="container">
+  <!-- Auth Container (initially shown) -->
+  <div id="auth-container" class="container">
+    <div class="auth-card card">
+      <h1>Nutrient Tracker</h1>
+      <div id="login-section">
+        <h2>Login</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" required>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" required>
+          </div>
+          <button type="submit" class="action-button">Login</button>
+        </form>
+        <p class="auth-switch">Don't have an account? <a href="#" id="show-register">Register</a></p>
+      </div>
+      
+      <div id="register-section" style="display: none;">
+        <h2>Register</h2>
+        <form id="register-form">
+          <div class="form-group">
+            <label for="register-email">Email</label>
+            <input type="email" id="register-email" required>
+          </div>
+          <div class="form-group">
+            <label for="register-password">Password</label>
+            <input type="password" id="register-password" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label for="register-confirm">Confirm Password</label>
+            <input type="password" id="register-confirm" required minlength="6">
+          </div>
+          <button type="submit" class="action-button">Register</button>
+        </form>
+        <p class="auth-switch">Already have an account? <a href="#" id="show-login">Login</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Container (initially hidden) -->
+  <div id="app-container" class="container" style="display: none;">
     <header>
       <h1>Nutrient Tracker</h1>
-      <button id="settings-btn">Settings</button>
+      <div class="header-buttons">
+        <button id="logout-btn" class="header-btn">Logout</button>
+        <button id="settings-btn">Settings</button>
+      </div>
     </header>
     
     <div class="tabs">
@@ -234,24 +284,14 @@
   <!-- Toast Notification -->
   <div id="toast" class="toast">Data saved successfully!</div>
   
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="overlay">
+    <div class="loader"></div>
+  </div>
+  
   <!-- Include Chart.js for better charting capabilities -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Add a debugging helper -->
-<div id="debug" style="display:none; position:fixed; bottom:0; left:0; background:white; padding:10px; border:1px solid #ccc; max-height:200px; overflow:auto; width:100%;"></div>
-
-<script>
-// Debug helper
-function debug(message) {
-  const debugEl = document.getElementById('debug');
-  debugEl.style.display = 'block';
-  const p = document.createElement('p');
-  p.textContent = message;
-  debugEl.appendChild(p);
-  console.log(message);
-}
-
-// Include the main script
-</script>
-<script src="script.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
